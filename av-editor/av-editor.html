@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AV Editor — Loxone Scenario Builder</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#0a0a0f;color:#ddd;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* TOOLBAR */
+.toolbar{background:#0f0f1a;border-bottom:1px solid #1e1e2e;padding:8px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.toolbar h1{font-size:.95rem;color:#fff;margin-right:8px}
+.btn{padding:6px 12px;border:none;border-radius:5px;cursor:pointer;font-size:.78rem;font-weight:500}
+.btn-primary{background:#2979ff;color:#fff}
+.btn-success{background:#2e7d32;color:#fff}
+.btn-warn{background:#e65100;color:#fff}
+.btn-neutral{background:#1e1e2e;color:#aaa;border:1px solid #2a2a3e}
+.btn-danger{background:#c62828;color:#fff}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.sep{width:1px;height:24px;background:#2a2a3e;margin:0 4px}
+input[type=text],input[type=password]{background:#1e1e2e;border:1px solid #2a2a3e;color:#ddd;border-radius:5px;padding:5px 9px;font-size:.78rem}
+input[type=text]::placeholder,input[type=password]::placeholder{color:#444}
+.status{font-size:.75rem;color:#555;margin-left:auto}
+.status.ok{color:#4caf50}
+.status.err{color:#f44336}
+.status.busy{color:#ff9800}
+
+/* MAIN AREA */
+.workspace{display:grid;grid-template-columns:1fr 300px;flex:1;overflow:hidden}
+
+/* VIDEO PANEL */
+.video-panel{display:flex;flex-direction:column;border-right:1px solid #1e1e2e;overflow:hidden}
+.video-wrap{flex:1;background:#000;display:flex;align-items:center;justify-content:center;min-height:0}
+video{max-width:100%;max-height:100%;display:block}
+.drop-hint{color:#333;text-align:center;padding:40px}
+.drop-hint .icon{font-size:3rem;margin-bottom:12px}
+
+/* TIMELINE */
+.timeline-area{background:#0d0d18;border-top:1px solid #1e1e2e;height:110px;flex-shrink:0;position:relative;overflow:hidden}
+.tl-bg{position:absolute;inset:0;cursor:crosshair}
+.tl-bar{position:absolute;top:0;bottom:0;width:2px;background:#2979ff;pointer-events:none;z-index:10}
+.tl-marker{position:absolute;top:4px;bottom:4px;width:3px;border-radius:2px;cursor:pointer;z-index:5;transform:translateX(-50%)}
+.tl-marker:hover{width:5px;z-index:6}
+.tl-marker .tip{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#1e1e2e;border:1px solid #2979ff;border-radius:4px;padding:2px 6px;font-size:.68rem;white-space:nowrap;color:#ddd;pointer-events:none}
+.tl-tick{position:absolute;bottom:0;width:1px;background:#1e1e2e;pointer-events:none}
+.tl-tick-label{position:absolute;bottom:2px;font-size:.6rem;color:#333;pointer-events:none;transform:translateX(-50%)}
+.tl-frames{position:absolute;top:0;left:0;right:0;height:60px;display:flex}
+.tl-frame{flex:1;background-size:cover;background-position:center;opacity:.5;border-right:1px solid #0a0a0f}
+.tl-playhead{position:absolute;top:0;width:2px;background:#2979ff;height:60px;pointer-events:none;z-index:10}
+.tl-play-area{position:absolute;top:0;left:0;right:0;height:60px;cursor:crosshair}
+.tl-events-row{position:absolute;top:60px;left:0;right:0;height:50px;cursor:crosshair}
+
+/* EVENTS PANEL */
+.events-panel{overflow-y:auto;display:flex;flex-direction:column}
+.ep-header{padding:10px 12px;border-bottom:1px solid #1e1e2e;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.ep-header h2{font-size:.8rem;color:#888;text-transform:uppercase;letter-spacing:.05em}
+.ep-count{font-size:.75rem;color:#555}
+.event-item{border-bottom:1px solid #0f0f1a;padding:8px 12px;cursor:pointer;transition:background .1s}
+.event-item:hover{background:#13131f}
+.event-item.selected{background:#0d1a33;border-left:3px solid #2979ff}
+.event-item .ev-time{font-family:monospace;font-size:.78rem;color:#2979ff;font-weight:600}
+.event-item .ev-label{font-size:.82rem;color:#ddd;margin-top:2px}
+.event-item .ev-actions{font-size:.7rem;color:#555;margin-top:2px}
+
+/* EVENT EDITOR */
+.ev-editor{background:#0f0f1a;border-top:1px solid #1e1e2e;padding:12px;flex-shrink:0}
+.ev-editor h3{font-size:.78rem;color:#888;text-transform:uppercase;margin-bottom:10px}
+.form-row{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.form-row label{font-size:.72rem;color:#666}
+.form-row input,
+.form-row select,
+.form-row textarea{background:#1a1a2a;border:1px solid #2a2a3e;color:#ddd;border-radius:4px;padding:5px 8px;font-size:.78rem;width:100%}
+.form-row textarea{resize:vertical;height:80px;font-family:monospace;font-size:.72rem}
+.ev-editor-actions{display:flex;gap:6px;margin-top:8px}
+.ev-editor-actions .btn{flex:1;padding:5px}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center}
+.modal{background:#13131f;border:1px solid #2a2a3e;border-radius:8px;padding:20px;width:440px;max-width:95vw}
+.modal h2{font-size:1rem;color:#fff;margin-bottom:14px}
+.modal .form-row{margin-bottom:10px}
+.modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+
+/* PROGRESS */
+.progress-bar-wrap{background:#1e1e2e;border-radius:3px;height:4px;overflow:hidden;margin-top:6px}
+.progress-bar-fill{height:100%;background:#2979ff;transition:width .3s}
+</style>
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <h1>🎬 AV Editor</h1>
+  <button class="btn btn-neutral" id="btnOpen">📂 Otwórz film</button>
+  <input type="file" id="fileInput" accept=".mp4,.mkv,.avi,.mov,.m4v" style="display:none">
+  <div class="sep"></div>
+  <button class="btn btn-warn" id="btnAnalyze" disabled>🤖 Analizuj AI</button>
+  <div class="sep"></div>
+  <button class="btn btn-neutral" id="btnImport">📥 Importuj JSON</button>
+  <button class="btn btn-success" id="btnExport" disabled>💾 Eksportuj scenario.json</button>
+  <div class="sep"></div>
+  <input type="password" id="apiKeyInput" placeholder="Anthropic API key…" style="width:220px">
+  <div class="sep"></div>
+  <span class="status" id="statusBar">Otwórz film aby rozpocząć</span>
+</div>
+
+<!-- WORKSPACE -->
+<div class="workspace">
+
+  <!-- VIDEO + TIMELINE -->
+  <div class="video-panel">
+    <div class="video-wrap" id="videoWrap">
+      <div class="drop-hint">
+        <div class="icon">🎬</div>
+        <div>Kliknij <b>Otwórz film</b> lub przeciągnij plik</div>
+      </div>
+    </div>
+    <div class="timeline-area" id="timelineArea">
+      <div class="tl-frames" id="tlFrames"></div>
+      <div class="tl-play-area" id="tlPlayArea"></div>
+      <div class="tl-events-row" id="tlEventsRow"></div>
+      <div class="tl-playhead" id="tlPlayhead" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- EVENTS PANEL -->
+  <div class="events-panel">
+    <div class="ep-header">
+      <h2>Zdarzenia</h2>
+      <span class="ep-count" id="epCount">0</span>
+    </div>
+    <div id="eventList" style="flex:1;overflow-y:auto"></div>
+    <div class="ev-editor" id="evEditor" style="display:none">
+      <h3>Edytuj zdarzenie</h3>
+      <div class="form-row">
+        <label>Czas (HH:MM:SS)</label>
+        <input type="text" id="evTime" placeholder="00:01:30">
+      </div>
+      <div class="form-row">
+        <label>Opis (po polsku)</label>
+        <input type="text" id="evLabel" placeholder="Opis zdarzenia">
+      </div>
+      <div class="form-row">
+        <label>Akcje (JSON array)</label>
+        <textarea id="evActions" placeholder='[{"type":"loxone","uuid":"202a29e1...","cmd":"moodPlus"}]'></textarea>
+      </div>
+      <div class="ev-editor-actions">
+        <button class="btn btn-primary" onclick="saveEvent()">Zapisz</button>
+        <button class="btn btn-danger" onclick="deleteEvent()">Usuń</button>
+        <button class="btn btn-neutral" onclick="closeEditor()">Anuluj</button>
+      </div>
+    </div>
+    <div style="padding:10px 12px;border-top:1px solid #1e1e2e;flex-shrink:0">
+      <div class="form-row">
+        <label>Tytuł scenariusza</label>
+        <input type="text" id="scenTitle" placeholder="Restauracja — demo Loxone">
+      </div>
+      <div class="form-row" style="margin-bottom:0">
+        <label>Film (nazwa pliku na RPi3)</label>
+        <input type="text" id="scenMovie" placeholder="restauracja.mkv">
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- AI MODAL -->
+<div class="modal-overlay" id="aiModal" style="display:none">
+  <div class="modal">
+    <h2>🤖 Analiza AI</h2>
+    <div id="aiProgress">
+      <p style="font-size:.85rem;color:#888;margin-bottom:12px">Claude analizuje klatki z filmu i generuje zdarzenia Loxone…</p>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="aiProgressBar" style="width:0%"></div></div>
+      <p style="font-size:.75rem;color:#555;margin-top:6px" id="aiProgressText">Inicjalizacja…</p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+// ── State ─────────────────────────────────────────────────────────────────────
+let video = null;
+let duration = 0;
+let events = [];
+let selectedIdx = null;
+let movieFilename = '';
+let frameObjectURLs = [];
+
+const LOXONE_CONTEXT = `
+Available Loxone devices (Miniserver "DET"):
+
+1. LightControllerV2 — "Sterownik oświetlenia"
+   uuid: 202a29e1-02cc-745e-ffff0a0fb1695586
+   commands: on, off, moodPlus, moodMinus, moveTo/0..100
+
+2. Jalousie — "Automatyczne zacienianie" (rolety)
+   uuid: 202a2a0e-03bb-7c3a-ffff0a0fb1695586
+   commands: up, down, stop, shade, auto, position/0..100
+
+3. AudioZoneV2 — "Odtwarzacz Audio" (przez Loxone, nie bezpośrednio)
+   type: audio, uuid: ""
+   commands: on, off, play, pause, stop, volume/0..100
+
+4. Switch — "LED obecnosc OFF"
+   uuid: 20498c76-00b3-cc55-ffff0a0fb1695586
+   commands: on, off, pulse
+`;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function ms2hms(ms){
+  const s=Math.floor(ms/1000);
+  return [Math.floor(s/3600),Math.floor((s%3600)/60),s%60].map(x=>String(x).padStart(2,'0')).join(':');
+}
+function hms2s(hms){
+  const p=hms.split(':').map(Number);
+  return p.length===3?p[0]*3600+p[1]*60+p[2]:p[0]*60+p[1];
+}
+function setStatus(msg, cls=''){
+  const el=document.getElementById('statusBar');
+  el.textContent=msg; el.className='status '+(cls||'');
+}
+function posPercent(s){ return duration>0 ? (s/duration*100)+'%' : '0%'; }
+function sortEvents(){ events.sort((a,b)=>a.time_s-b.time_s); }
+
+// ── Open file ─────────────────────────────────────────────────────────────────
+document.getElementById('btnOpen').onclick = () => document.getElementById('fileInput').click();
+document.getElementById('fileInput').onchange = e => loadFile(e.target.files[0]);
+
+document.getElementById('videoWrap').addEventListener('dragover', e=>{e.preventDefault();});
+document.getElementById('videoWrap').addEventListener('drop', e=>{
+  e.preventDefault();
+  const f=e.dataTransfer.files[0];
+  if(f) loadFile(f);
+});
+
+function loadFile(file){
+  if(!file) return;
+  movieFilename = file.name;
+  document.getElementById('scenMovie').value = file.name;
+
+  const wrap = document.getElementById('videoWrap');
+  wrap.innerHTML='';
+  video = document.createElement('video');
+  video.controls = true;
+  video.style.maxWidth='100%';
+  video.style.maxHeight='100%';
+  video.src = URL.createObjectURL(file);
+  wrap.appendChild(video);
+
+  video.onloadedmetadata = () => {
+    duration = video.duration;
+    document.getElementById('tlPlayhead').style.display='block';
+    document.getElementById('btnAnalyze').disabled = false;
+    document.getElementById('btnExport').disabled = false;
+    setStatus(`${file.name} — ${ms2hms(duration*1000)}`, 'ok');
+    drawTicks();
+    extractFrames(file);
+    video.ontimeupdate = updatePlayhead;
+  };
+}
+
+// ── Frame extraction via Canvas ───────────────────────────────────────────────
+async function extractFrames(file){
+  const frameCount = 12;
+  const tmpVideo = document.createElement('video');
+  tmpVideo.src = URL.createObjectURL(file);
+  tmpVideo.muted = true;
+  await new Promise(r=>tmpVideo.onloadedmetadata=r);
+  const dur = tmpVideo.duration;
+
+  frameObjectURLs.forEach(u=>URL.revokeObjectURL(u));
+  frameObjectURLs = [];
+  document.getElementById('tlFrames').innerHTML='';
+
+  const canvas = document.createElement('canvas');
+  canvas.width=160; canvas.height=90;
+  const ctx = canvas.getContext('2d');
+
+  for(let i=0;i<frameCount;i++){
+    const t = 2 + (dur-4)*i/(frameCount-1);
+    tmpVideo.currentTime = t;
+    await new Promise(r=>tmpVideo.onseeked=r);
+    ctx.drawImage(tmpVideo,0,0,160,90);
+    const blob = await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.6));
+    const url = URL.createObjectURL(blob);
+    frameObjectURLs.push({url, time: t, blob});
+
+    const div=document.createElement('div');
+    div.className='tl-frame';
+    div.style.backgroundImage=`url(${url})`;
+    document.getElementById('tlFrames').appendChild(div);
+  }
+  tmpVideo.remove();
+}
+
+// ── Timeline ──────────────────────────────────────────────────────────────────
+function drawTicks(){
+  const area = document.getElementById('tlPlayArea');
+  area.innerHTML='';
+  const step = duration > 120 ? 30 : duration > 60 ? 15 : 10;
+  for(let t=step;t<duration;t+=step){
+    const pct=(t/duration*100)+'%';
+    const tick=document.createElement('div');
+    tick.className='tl-tick';
+    tick.style.cssText=`left:${pct};height:8px;bottom:0;position:absolute;background:#2a2a3e`;
+    area.appendChild(tick);
+    const lbl=document.createElement('div');
+    lbl.className='tl-tick-label';
+    lbl.style.cssText=`left:${pct};bottom:8px;position:absolute;font-size:.6rem;color:#444;transform:translateX(-50%)`;
+    lbl.textContent=ms2hms(t*1000);
+    area.appendChild(lbl);
+  }
+  area.onclick = e => {
+    if(!duration) return;
+    const rect=area.getBoundingClientRect();
+    const pct=(e.clientX-rect.left)/rect.width;
+    const t=pct*duration;
+    video.currentTime=t;
+  };
+}
+
+document.getElementById('tlEventsRow').onclick = e => {
+  if(!duration) return;
+  const rect=document.getElementById('tlEventsRow').getBoundingClientRect();
+  const pct=(e.clientX-rect.left)/rect.width;
+  const t=pct*duration;
+  addEventAt(t);
+};
+
+function updatePlayhead(){
+  if(!duration) return;
+  const pct=(video.currentTime/duration*100)+'%';
+  document.getElementById('tlPlayhead').style.left=pct;
+  renderMarkers();
+}
+
+// ── Events CRUD ───────────────────────────────────────────────────────────────
+function addEventAt(time_s){
+  const ev = {
+    id: 'evt_'+(Date.now()%100000),
+    time_s,
+    label: 'Nowe zdarzenie',
+    actions: []
+  };
+  events.push(ev);
+  sortEvents();
+  renderAll();
+  selectEvent(events.indexOf(ev));
+}
+
+window.saveEvent = function(){
+  if(selectedIdx===null) return;
+  const ev = events[selectedIdx];
+  ev.time_s = hms2s(document.getElementById('evTime').value);
+  ev.label = document.getElementById('evLabel').value;
+  try{ ev.actions = JSON.parse(document.getElementById('evActions').value||'[]'); }
+  catch(e){ alert('Nieprawidłowy JSON akcji'); return; }
+  sortEvents();
+  renderAll();
+  closeEditor();
+};
+
+window.deleteEvent = function(){
+  if(selectedIdx===null) return;
+  if(!confirm('Usunąć zdarzenie?')) return;
+  events.splice(selectedIdx,1);
+  selectedIdx=null;
+  closeEditor();
+  renderAll();
+};
+
+window.closeEditor = function(){
+  selectedIdx=null;
+  document.getElementById('evEditor').style.display='none';
+  document.querySelectorAll('.event-item').forEach(el=>el.classList.remove('selected'));
+  renderMarkers();
+};
+
+function selectEvent(idx){
+  selectedIdx=idx;
+  const ev=events[idx];
+  document.getElementById('evTime').value=ms2hms(ev.time_s*1000);
+  document.getElementById('evLabel').value=ev.label;
+  document.getElementById('evActions').value=JSON.stringify(ev.actions,null,2);
+  document.getElementById('evEditor').style.display='block';
+  document.querySelectorAll('.event-item').forEach((el,i)=>{
+    el.classList.toggle('selected',i===idx);
+  });
+  // Seek video to event time
+  if(video) video.currentTime=ev.time_s;
+  renderMarkers();
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderAll(){ renderList(); renderMarkers(); updateCount(); }
+
+function renderList(){
+  const el=document.getElementById('eventList');
+  if(!events.length){el.innerHTML='<div style="padding:16px;color:#444;font-size:.8rem">Kliknij na timeline aby dodać zdarzenie lub użyj AI</div>';return;}
+  el.innerHTML=events.map((ev,i)=>`
+    <div class="event-item${selectedIdx===i?' selected':''}" onclick="selectEvent(${i})">
+      <div class="ev-time">${ms2hms(ev.time_s*1000)}</div>
+      <div class="ev-label">${escH(ev.label)}</div>
+      <div class="ev-actions">${ev.actions.length} akcji${ev.actions.length?': '+ev.actions.map(a=>`${a.type}/${a.cmd}`).join(', '):''}</div>
+    </div>`).join('');
+}
+
+function renderMarkers(){
+  const row=document.getElementById('tlEventsRow');
+  row.innerHTML='';
+  if(!duration) return;
+  events.forEach((ev,i)=>{
+    const m=document.createElement('div');
+    m.className='tl-marker';
+    m.style.cssText=`left:${posPercent(ev.time_s)};background:${i===selectedIdx?'#2979ff':'#ff9800'}`;
+    m.innerHTML=`<div class="tip">${ms2hms(ev.time_s*1000)} ${escH(ev.label.substring(0,20))}</div>`;
+    m.onclick=e=>{e.stopPropagation();selectEvent(i);};
+    row.appendChild(m);
+  });
+}
+
+function updateCount(){ document.getElementById('epCount').textContent=events.length+' zd.'; }
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+
+// ── Export / Import ───────────────────────────────────────────────────────────
+document.getElementById('btnExport').onclick = () => {
+  const title = document.getElementById('scenTitle').value || movieFilename.replace(/\.[^.]+$/,'');
+  const movie = document.getElementById('scenMovie').value || movieFilename;
+  const scenario = {
+    title,
+    description: `Scenariusz wygenerowany przez AV Editor dla ${movie}`,
+    movie,
+    version: '1.0',
+    events: events.map((ev,i)=>({
+      id: `evt_${String(i+1).padStart(3,'0')}`,
+      time: ms2hms(ev.time_s*1000),
+      label: ev.label,
+      actions: ev.actions
+    }))
+  };
+  const blob=new Blob([JSON.stringify(scenario,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=(title.toLowerCase().replace(/\s+/g,'_')||'scenario')+'.json';
+  a.click();
+};
+
+document.getElementById('btnImport').onclick = () => {
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        document.getElementById('scenTitle').value=d.title||'';
+        document.getElementById('scenMovie').value=d.movie||'';
+        events=(d.events||[]).map(ev=>({
+          id:ev.id,
+          time_s:hms2s(ev.time),
+          label:ev.label,
+          actions:ev.actions||[]
+        }));
+        sortEvents();
+        renderAll();
+        setStatus(`Wczytano ${events.length} zdarzeń z ${f.name}`,'ok');
+      }catch(e){alert('Błąd parsowania JSON: '+e.message);}
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+};
+
+// ── AI Analysis ───────────────────────────────────────────────────────────────
+document.getElementById('btnAnalyze').onclick = async () => {
+  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  if(!apiKey){ alert('Wpisz klucz Anthropic API'); return; }
+  if(!frameObjectURLs.length){ alert('Poczekaj aż załadują się klatki'); return; }
+
+  document.getElementById('aiModal').style.display='flex';
+  document.getElementById('aiProgressBar').style.width='10%';
+  document.getElementById('aiProgressText').textContent='Przygotowuję klatki…';
+
+  try{
+    // Convert frame blobs to base64
+    const frames=[];
+    for(const f of frameObjectURLs){
+      const ab=await f.blob.arrayBuffer();
+      const b64=btoa(String.fromCharCode(...new Uint8Array(ab)));
+      frames.push({time:f.time, b64});
+    }
+
+    document.getElementById('aiProgressBar').style.width='30%';
+    document.getElementById('aiProgressText').textContent='Wysyłam do Claude API…';
+
+    const content=[];
+    frames.forEach(f=>{
+      content.push({type:'text',text:`Klatka o czasie ${ms2hms(f.time*1000)} (${f.time.toFixed(0)}s):`});
+      content.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:f.b64}});
+    });
+    content.push({type:'text',text:`
+Przeanalizuj powyższe klatki z filmu i stwórz scenariusz automatyki Loxone.
+
+${LOXONE_CONTEXT}
+
+Zwróć TYLKO JSON (bez żadnego tekstu poza JSON):
+{
+  "title": "<tytuł po polsku>",
+  "events": [
+    {
+      "id": "evt_001",
+      "time_s": <sekundy jako liczba>,
+      "label": "<opis po polsku>",
+      "actions": [
+        {"type": "loxone", "uuid": "<uuid>", "cmd": "<komenda>"}
+      ]
+    }
+  ]
+}
+
+Czas trwania filmu: ${ms2hms(duration*1000)} (${duration.toFixed(0)}s).
+Stwórz 8-14 zdarzeń rozmieszczonych przez cały film. Zdarzenia mają tworzyć dramatyczne, immersyjne doświadczenie.
+Dla typu "audio" zostaw uuid jako pusty string "".
+`});
+
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':apiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-opus-4-7',
+        max_tokens:4096,
+        system:'Jesteś ekspertem od automatyki budynkowej i synchronizacji doświadczeń multimedialnych z systemem Loxone. Odpowiadasz WYŁĄCZNIE w formacie JSON, bez żadnego tekstu poza JSON.',
+        messages:[{role:'user',content}]
+      })
+    });
+
+    document.getElementById('aiProgressBar').style.width='80%';
+    document.getElementById('aiProgressText').textContent='Przetwarzam odpowiedź…';
+
+    if(!resp.ok){
+      const err=await resp.json();
+      throw new Error(err.error?.message||resp.statusText);
+    }
+
+    const data=await resp.json();
+    let raw=data.content[0].text.trim();
+    const m=raw.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
+    if(m) raw=m[1];
+
+    const result=JSON.parse(raw);
+    if(result.title) document.getElementById('scenTitle').value=result.title;
+    events=(result.events||[]).map(ev=>({
+      id:ev.id||'evt_'+Math.random().toString(36).slice(2,7),
+      time_s:ev.time_s||(ev.time?hms2s(ev.time):0),
+      label:ev.label||'',
+      actions:ev.actions||[]
+    }));
+    sortEvents();
+    renderAll();
+
+    document.getElementById('aiProgressBar').style.width='100%';
+    document.getElementById('aiProgressText').textContent=`✓ Wygenerowano ${events.length} zdarzeń`;
+    setTimeout(()=>document.getElementById('aiModal').style.display='none',1200);
+    setStatus(`AI: ${events.length} zdarzeń wygenerowanych`,'ok');
+
+  }catch(e){
+    document.getElementById('aiModal').style.display='none';
+    alert('Błąd API: '+e.message);
+    setStatus('Błąd analizy AI','err');
+  }
+};
+
+// Make selectEvent globally accessible
+window.selectEvent = selectEvent;
+</script>
+</body>
+</html>
