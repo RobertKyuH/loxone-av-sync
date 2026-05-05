@@ -4,17 +4,18 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from flask import Flask, render_template, jsonify, request, abort, send_from_directory
+from flask import Flask, render_template, jsonify, request, abort
 from werkzeug.utils import secure_filename
 from ..scheduler import EventScheduler
-from ..scenario import load_scenario, list_scenarios, list_movies
+from ..scenario import load_scenario, list_scenarios
 from ..kodi_client import KodiClient
 from ..loxone_client import LoxoneClient
 from ..audio_client import AudioClient
 
 logger = logging.getLogger(__name__)
 
-MOVIE_EXTS = {".mp4", ".mkv", ".avi", ".mov", ".m4v"}
+FIRESTICK_MOVIES_DIR = "/storage/emulated/0/Movies"
+STAGING_EXTS = {".mp4", ".mkv", ".avi", ".mov", ".m4v"}
 
 
 def create_app(
@@ -23,19 +24,17 @@ def create_app(
     loxone: LoxoneClient,
     audio: AudioClient,
     cfg: dict,
-    rpi_host: str = "10.1.1.105",
-    media_port: int = 8888,
 ) -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024 * 1024  # 8 GB
 
     scenarios_dir = Path("scenarios")
-    movies_dir = Path("movies")
-    movies_dir.mkdir(exist_ok=True)
+    staging_dir = Path("staging")   # temp upload area before ADB push
+    staging_dir.mkdir(exist_ok=True)
 
     firestick_ip = cfg.get("kodi", {}).get("host", "10.1.1.240")
 
-    # Track currently armed scenario for remote-play endpoint
+    # Currently armed scenario filename (for remote-play endpoint)
     _state: dict = {"current_filename": None}
 
     event_log: list = []
@@ -83,32 +82,70 @@ def create_app(
         f.save(scenarios_dir / name)
         return jsonify({"ok": True, "filename": name})
 
-    # ── Movies API ────────────────────────────────────────────────────────────
+    # ── Firestick file browser ─────────────────────────────────────────────────
 
-    @app.route("/api/movies")
-    def get_movies():
-        return jsonify(list_movies(str(movies_dir)))
+    @app.route("/api/firestick/files")
+    def firestick_files():
+        """List video files visible to Kodi on Firestick."""
+        directory = request.args.get("path", FIRESTICK_MOVIES_DIR)
+        try:
+            result = kodi._rpc("Files.GetDirectory", {
+                "directory": directory,
+                "media": "video",
+                "properties": ["size", "file"],
+            })
+            if result is None:
+                return jsonify({"ok": False, "error": "Kodi nie odpowiada lub katalog niedostępny"})
+            files = [
+                {
+                    "path": f["file"],
+                    "label": f["label"],
+                    "is_dir": f["filetype"] == "directory",
+                    "size_mb": round(f.get("size", 0) / 1024 / 1024, 1),
+                }
+                for f in result.get("files", [])
+            ]
+            return jsonify({"ok": True, "path": directory, "files": files})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)})
 
-    @app.route("/api/movies/<filename>", methods=["DELETE"])
-    def delete_movie(filename):
-        path = movies_dir / secure_filename(filename)
-        if path.exists():
-            path.unlink()
-        return jsonify({"ok": True})
+    # ── ADB push film to Firestick ─────────────────────────────────────────────
 
     @app.route("/api/upload/movie", methods=["POST"])
-    def upload_movie():
+    def upload_and_push():
+        """Upload film to staging, then ADB-push to Firestick, then delete staging copy."""
         f = request.files.get("file")
         if not f:
             abort(400)
         name = secure_filename(f.filename)
-        # Allow image files for splash screen too
-        if Path(name).suffix.lower() not in MOVIE_EXTS | {".jpg", ".jpeg", ".png"}:
+        if Path(name).suffix.lower() not in STAGING_EXTS:
             abort(400)
-        dest = movies_dir / name
-        f.save(dest)
-        size_mb = dest.stat().st_size / 1024 / 1024
-        return jsonify({"ok": True, "filename": name, "size_mb": round(size_mb, 1)})
+
+        staging_path = staging_dir / name
+        f.save(staging_path)
+
+        try:
+            _adb_connect(firestick_ip)
+            dest = f"{FIRESTICK_MOVIES_DIR}/{name}"
+            r = subprocess.run(
+                ["adb", "-s", f"{firestick_ip}:5555", "push", str(staging_path), dest],
+                capture_output=True, text=True, timeout=600,
+            )
+            staging_path.unlink(missing_ok=True)
+
+            if r.returncode != 0:
+                return jsonify({"ok": False, "error": r.stderr.strip()}), 502
+
+            # Refresh Kodi media library
+            kodi._rpc("VideoLibrary.Scan", {})
+
+            return jsonify({"ok": True, "path": dest, "filename": name})
+        except FileNotFoundError:
+            staging_path.unlink(missing_ok=True)
+            return jsonify({"ok": False, "error": "adb nie zainstalowane: sudo apt-get install -y adb"}), 500
+        except Exception as e:
+            staging_path.unlink(missing_ok=True)
+            return jsonify({"ok": False, "error": str(e)}), 500
 
     # ── Playback control ──────────────────────────────────────────────────────
 
@@ -124,10 +161,10 @@ def create_app(
         time.sleep(0.8)
 
         if scenario.movie:
-            movie_url = f"http://{rpi_host}:{media_port}/{scenario.movie}"
-            ok = kodi.open_file(movie_url)
+            # movie field = full local path on Firestick
+            ok = kodi.open_file(scenario.movie)
             if not ok:
-                return None, "Kodi nie mógł otworzyć pliku"
+                return None, "Kodi nie mógł otworzyć pliku — sprawdź ścieżkę w scenariuszu"
 
         scheduler.set_scenario(scenario)
         scheduler.reset()
@@ -150,7 +187,7 @@ def create_app(
 
     @app.route("/api/launch-current", methods=["POST"])
     def launch_current():
-        """Re-launch the currently selected scenario — called by Kodi remote keymap."""
+        """Re-launch current scenario — called by Firestick remote keymap."""
         fn = _state.get("current_filename")
         if not fn:
             return jsonify({"ok": False, "error": "Brak wybranego scenariusza"}), 400
@@ -165,7 +202,7 @@ def create_app(
             scheduler.stop()
             kodi.stop()
             time.sleep(0.3)
-            _kodi_go_home()
+            kodi._rpc("GUI.ActivateWindow", {"window": "home"})
         elif action == "reset":
             scheduler.reset()
         else:
@@ -174,30 +211,15 @@ def create_app(
 
     # ── Kodi helpers ──────────────────────────────────────────────────────────
 
-    def _kodi_go_home():
-        kodi._rpc("GUI.ActivateWindow", {"window": "home"})
-
-    def _kodi_show_splash():
-        splash = movies_dir / "splash.png"
-        if splash.exists():
-            url = f"http://{rpi_host}:{media_port}/splash.png"
-            kodi._rpc("Player.Open", {"item": {"file": url}})
-        else:
-            _kodi_go_home()
-
-    @app.route("/api/kodi/splash", methods=["POST"])
-    def kodi_splash():
-        _kodi_show_splash()
-        return jsonify({"ok": True})
-
     @app.route("/api/kodi/home", methods=["POST"])
     def kodi_home():
-        _kodi_go_home()
+        kodi._rpc("GUI.ActivateWindow", {"window": "home"})
         return jsonify({"ok": True})
 
     @app.route("/api/kodi/deploy", methods=["POST"])
     def kodi_deploy():
-        """Deploy remote-play keymap + Python script to Firestick via ADB."""
+        """Deploy remote-play keymap + script to Firestick via ADB."""
+        rpi_port = cfg.get("web", {}).get("port", 5000)
         keymap_xml = (
             '<keymap>\n'
             '  <home>\n'
@@ -212,24 +234,19 @@ def create_app(
             '  </picturewindow>\n'
             '</keymap>\n'
         )
+        rpi_host = cfg.get("rpi_host", "10.1.1.105")
         launch_script = (
             "import urllib.request\n"
             "try:\n"
-            f"    urllib.request.urlopen('http://{rpi_host}:5000/api/launch-current', timeout=5)\n"
+            f"    urllib.request.urlopen('http://{rpi_host}:{rpi_port}/api/launch-current', timeout=5)\n"
             "except Exception:\n"
             "    pass\n"
         )
 
         kodi_data = "/sdcard/Android/data/org.xbmc.kodi/files/.kodi"
 
-        def adb(*args):
-            cmd = ["adb", "-s", f"{firestick_ip}:5555"] + list(args)
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-            logger.info("ADB %s → %s", " ".join(args[:2]), r.stdout.strip() or r.stderr.strip())
-            return r
-
         try:
-            adb("connect", f"{firestick_ip}:5555")
+            _adb_connect(firestick_ip)
 
             with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False) as f:
                 f.write(keymap_xml)
@@ -238,23 +255,26 @@ def create_app(
                 f.write(launch_script)
                 script_path = f.name
 
-            adb("shell", f"mkdir -p {kodi_data}/userdata/keymaps {kodi_data}/userdata/scripts")
-            r1 = adb("push", keymap_path, f"{kodi_data}/userdata/keymaps/av_demo.xml")
-            r2 = adb("push", script_path, f"{kodi_data}/userdata/scripts/av_launch.py")
+            _adb("shell", f"mkdir -p {kodi_data}/userdata/keymaps {kodi_data}/userdata/scripts",
+                 firestick_ip)
+            r1 = _adb("push", keymap_path,
+                      f"{kodi_data}/userdata/keymaps/av_demo.xml", firestick_ip)
+            r2 = _adb("push", script_path,
+                      f"{kodi_data}/userdata/scripts/av_launch.py", firestick_ip)
 
-            # Reload Kodi's keymaps without full restart
+            # Restart Kodi to load keymap
             kodi._rpc("Application.Quit", {})
             time.sleep(2)
-            adb("shell", "monkey -p org.xbmc.kodi -c android.intent.category.LAUNCHER 1")
+            _adb("shell", "monkey -p org.xbmc.kodi -c android.intent.category.LAUNCHER 1",
+                 firestick_ip)
 
             return jsonify({
                 "ok": True,
                 "keymap": r1.returncode == 0,
                 "script": r2.returncode == 0,
-                "note": "Kodi restarted to load keymap",
             })
         except FileNotFoundError:
-            return jsonify({"ok": False, "error": "adb nie jest zainstalowane na RPi3 — zainstaluj: sudo apt-get install -y adb"}), 500
+            return jsonify({"ok": False, "error": "adb nie zainstalowane: sudo apt-get install -y adb"}), 500
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -275,7 +295,11 @@ def create_app(
         return jsonify({
             "running": scheduler._running,
             "current_filename": _state.get("current_filename"),
-            "scenario": {"title": active.title, "movie": active.movie, "filename": active.filename} if active else None,
+            "scenario": {
+                "title": active.title,
+                "movie": active.movie,
+                "filename": active.filename,
+            } if active else None,
             "playback": {
                 "playing": state.playing,
                 "paused": state.paused,
@@ -298,3 +322,16 @@ def create_app(
         })
 
     return app
+
+
+# ── ADB helpers ────────────────────────────────────────────────────────────────
+
+def _adb_connect(ip: str):
+    subprocess.run(["adb", "connect", f"{ip}:5555"],
+                   capture_output=True, timeout=10)
+
+def _adb(*args, firestick_ip: str) -> subprocess.CompletedProcess:
+    cmd = ["adb", "-s", f"{firestick_ip}:5555"] + list(args)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    logger.info("ADB %s → rc=%d", " ".join(str(a) for a in args[:2]), r.returncode)
+    return r
