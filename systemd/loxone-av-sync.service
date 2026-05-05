@@ -1,0 +1,16 @@
+[Unit]
+Description=Loxone AV Sync — Kodi timestamp to Loxone/AudioServer event scheduler
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/loxone-av-sync
+ExecStart=/home/pi/loxone-av-sync/venv/bin/python -m src.main
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

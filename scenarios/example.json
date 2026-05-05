@@ -1,0 +1,54 @@
+{
+  "title": "Przykładowy scenariusz — Burza",
+  "description": "Demo synchronizacji świateł i dźwięku ze sceną burzową w filmie",
+  "version": "1.0",
+  "events": [
+    {
+      "id": "evt_001",
+      "time": "00:05:32",
+      "label": "Scena burzy - przyciemnienie",
+      "actions": [
+        {
+          "type": "loxone",
+          "command": "LightScene_Burza",
+          "value": 1
+        },
+        {
+          "type": "loxone",
+          "command": "Roleta_Salon",
+          "value": "down"
+        }
+      ]
+    },
+    {
+      "id": "evt_002",
+      "time": "00:05:35",
+      "label": "Efekt dźwiękowy grzmotu",
+      "actions": [
+        {
+          "type": "audio",
+          "command": "play",
+          "file": "grzmot.mp3",
+          "volume": 80
+        }
+      ]
+    },
+    {
+      "id": "evt_003",
+      "time": "00:15:20",
+      "label": "Koniec burzy - normalne oświetlenie",
+      "actions": [
+        {
+          "type": "loxone",
+          "command": "LightScene_Normal",
+          "value": 1
+        },
+        {
+          "type": "loxone",
+          "command": "Roleta_Salon",
+          "value": "up"
+        }
+      ]
+    }
+  ]
+}

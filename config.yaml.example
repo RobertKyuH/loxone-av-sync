@@ -1,0 +1,30 @@
+kodi:
+  host: 10.1.1.240
+  port: 8080
+  user: kodi
+  password: kodi
+  poll_interval_ms: 500
+
+loxone:
+  host: 10.1.1.13
+  port: 80
+  user: admin
+  password: admin
+  api_path: /dev/sps/io
+
+audio:
+  host: 10.1.1.11
+  port: 80
+  api_path: /api
+
+web:
+  host: 0.0.0.0
+  port: 5000
+
+timing:
+  pre_trigger_ms: 200
+  tolerance_ms: 500
+
+logging:
+  level: INFO
+  file: logs/av-sync.log
