@@ -81,7 +81,7 @@ class EventScheduler:
                 continue
             delta = position_ms - event.time_ms
             if 0 <= delta <= self.tolerance_ms:
-                logger.info("Triggering event [%s] %s at pos %dms", event.id, event.label, position_ms)
+                logger.info("Triggering [%s] '%s' @ %dms", event.id, event.label, position_ms)
                 self._execute_event(event)
                 self._executed_ids.add(event.id)
 
@@ -93,13 +93,22 @@ class EventScheduler:
 
     def _execute_action(self, action: Action):
         if action.type == "loxone":
-            self.loxone.send_command(action.command, action.value)
-        elif action.type == "loxone_scene":
-            self.loxone.activate_scene(action.scene_name)
+            self.loxone.command(action.uuid, action.cmd)
         elif action.type == "audio":
-            if action.command == "play":
-                self.audio.play_file(action.file, action.volume)
-            elif action.command == "stop":
+            if action.cmd == "play":
+                self.audio.play()
+            elif action.cmd == "pause":
+                self.audio.pause()
+            elif action.cmd == "stop":
                 self.audio.stop()
+            elif action.cmd.startswith("volume/"):
+                vol = int(action.cmd.split("/")[1])
+                self.audio.set_volume(vol)
+            elif action.cmd == "on":
+                self.audio.power_on()
+            elif action.cmd == "off":
+                self.audio.power_off()
+            else:
+                logger.warning("Unknown audio cmd: %s", action.cmd)
         else:
             logger.warning("Unknown action type: %s", action.type)

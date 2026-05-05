@@ -1,53 +1,57 @@
 {
   "title": "Przykładowy scenariusz — Burza",
-  "description": "Demo synchronizacji świateł i dźwięku ze sceną burzową w filmie",
-  "version": "1.0",
+  "description": "Demo: synchronizacja świateł, rolety i audio ze sceną burzową w filmie",
+  "version": "2.0",
   "events": [
     {
       "id": "evt_001",
-      "time": "00:05:32",
-      "label": "Scena burzy - przyciemnienie",
+      "time": "00:05:30",
+      "label": "Burza — audio ON, głośność 70%",
       "actions": [
-        {
-          "type": "loxone",
-          "command": "LightScene_Burza",
-          "value": 1
-        },
-        {
-          "type": "loxone",
-          "command": "Roleta_Salon",
-          "value": "down"
-        }
+        { "type": "audio", "uuid": "", "cmd": "on" },
+        { "type": "audio", "uuid": "", "cmd": "volume/70" }
       ]
     },
     {
       "id": "evt_002",
-      "time": "00:05:35",
-      "label": "Efekt dźwiękowy grzmotu",
+      "time": "00:05:32",
+      "label": "Burza — przyciemnienie świateł",
       "actions": [
-        {
-          "type": "audio",
-          "command": "play",
-          "file": "grzmot.mp3",
-          "volume": 80
-        }
+        { "type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "moodMinus" },
+        { "type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "moodMinus" }
       ]
     },
     {
       "id": "evt_003",
-      "time": "00:15:20",
-      "label": "Koniec burzy - normalne oświetlenie",
+      "time": "00:05:34",
+      "label": "Burza — roleta w dół",
       "actions": [
-        {
-          "type": "loxone",
-          "command": "LightScene_Normal",
-          "value": 1
-        },
-        {
-          "type": "loxone",
-          "command": "Roleta_Salon",
-          "value": "up"
-        }
+        { "type": "loxone", "uuid": "202a2a0e-03bb-7c3a-ffff0a0fb1695586", "cmd": "down" }
+      ]
+    },
+    {
+      "id": "evt_004",
+      "time": "00:15:20",
+      "label": "Koniec burzy — normalne oświetlenie",
+      "actions": [
+        { "type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "moodPlus" },
+        { "type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "moodPlus" }
+      ]
+    },
+    {
+      "id": "evt_005",
+      "time": "00:15:22",
+      "label": "Koniec burzy — roleta w górę",
+      "actions": [
+        { "type": "loxone", "uuid": "202a2a0e-03bb-7c3a-ffff0a0fb1695586", "cmd": "up" }
+      ]
+    },
+    {
+      "id": "evt_006",
+      "time": "00:15:25",
+      "label": "Koniec burzy — audio ściszenie",
+      "actions": [
+        { "type": "audio", "uuid": "", "cmd": "volume/30" }
       ]
     }
   ]

@@ -9,12 +9,14 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Action:
+    """
+    type: loxone | audio
+    loxone: uuid + cmd  (e.g. cmd="up", cmd="volume/50", cmd="moodPlus")
+    audio:  cmd = play | pause | stop | volume/{n} | on | off
+    """
     type: str
-    command: str = ""
-    value: Any = None
-    file: str = ""
-    volume: int = 80
-    scene_name: str = ""
+    uuid: str = ""
+    cmd: str = ""
 
 
 @dataclass
@@ -30,7 +32,6 @@ class Event:
 
 
 def _parse_time(time_str: str) -> int:
-    """Convert HH:MM:SS to milliseconds."""
     parts = time_str.split(":")
     if len(parts) == 3:
         h, m, s = int(parts[0]), int(parts[1]), int(parts[2])

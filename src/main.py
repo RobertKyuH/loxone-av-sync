@@ -46,12 +46,10 @@ def main():
         port=cfg["loxone"]["port"],
         user=cfg["loxone"]["user"],
         password=cfg["loxone"]["password"],
-        api_path=cfg["loxone"]["api_path"],
     )
     audio = AudioClient(
-        host=cfg["audio"]["host"],
-        port=cfg["audio"]["port"],
-        api_path=cfg["audio"]["api_path"],
+        loxone=loxone,
+        audio_zone_uuid=cfg["loxone"]["audio_zone_uuid"],
     )
     scheduler = EventScheduler(
         kodi=kodi,

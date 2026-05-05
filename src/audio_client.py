@@ -1,50 +1,35 @@
-import requests
+from .loxone_client import LoxoneClient
 import logging
 
 logger = logging.getLogger(__name__)
 
+# AudioServer is paired with Loxone Miniserver — direct HTTP commands are blocked.
+# All audio control goes through Loxone AudioZoneV2 UUID.
+
 
 class AudioClient:
-    """
-    Client for Loxone AudioServer HTTP API.
-    Endpoints verified against AudioServer firmware — update api_path in config if needed.
-    """
+    def __init__(self, loxone: LoxoneClient, audio_zone_uuid: str):
+        self.loxone = loxone
+        self.uuid = audio_zone_uuid
 
-    def __init__(self, host: str, port: int, api_path: str):
-        self.base_url = f"http://{host}:{port}{api_path}"
-        self.session = requests.Session()
+    def play(self) -> bool:
+        return self.loxone.command(self.uuid, "play")
 
-    def play_file(self, filename: str, volume: int = 80) -> bool:
-        """Play audio file on zone 0 (default). Adjust zone param as needed."""
-        try:
-            r = self.session.get(
-                f"{self.base_url}/zone/0/volume/{volume}",
-                timeout=3
-            )
-            r.raise_for_status()
-            r2 = self.session.get(
-                f"{self.base_url}/zone/0/play/{filename}",
-                timeout=3
-            )
-            r2.raise_for_status()
-            logger.info("Audio play: %s vol=%d", filename, volume)
-            return True
-        except requests.RequestException as e:
-            logger.error("Audio error [%s]: %s", filename, e)
-            return False
+    def pause(self) -> bool:
+        return self.loxone.command(self.uuid, "pause")
 
     def stop(self) -> bool:
-        try:
-            r = self.session.get(f"{self.base_url}/zone/0/stop", timeout=3)
-            r.raise_for_status()
-            return True
-        except requests.RequestException as e:
-            logger.error("Audio stop error: %s", e)
-            return False
+        return self.loxone.command(self.uuid, "stop")
+
+    def set_volume(self, volume: int) -> bool:
+        vol = max(0, min(100, int(volume)))
+        return self.loxone.command(self.uuid, f"volume/{vol}")
+
+    def power_on(self) -> bool:
+        return self.loxone.command(self.uuid, "on")
+
+    def power_off(self) -> bool:
+        return self.loxone.command(self.uuid, "off")
 
     def test_connection(self) -> bool:
-        try:
-            r = self.session.get(f"{self.base_url}/status", timeout=3)
-            return r.status_code == 200
-        except Exception:
-            return False
+        return self.loxone.test_connection()
