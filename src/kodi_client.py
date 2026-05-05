@@ -83,6 +83,16 @@ class KodiClient:
         self._player_id = None
         return result is not None
 
+    def seek_to_start(self) -> bool:
+        player_id = self._player_id or self.get_active_player_id()
+        if player_id is None:
+            return False
+        result = self._rpc("Player.Seek", {
+            "playerid": player_id,
+            "value": {"time": {"hours": 0, "minutes": 0, "seconds": 0, "milliseconds": 0}},
+        })
+        return result is not None
+
     def test_connection(self) -> bool:
         result = self._rpc("JSONRPC.Ping", {})
         return result == "pong"

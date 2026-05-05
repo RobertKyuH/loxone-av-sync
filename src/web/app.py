@@ -201,10 +201,14 @@ def create_app(
         if action == "stop":
             scheduler.stop()
             kodi.stop()
+            audio.stop()          # stop AudioServer via Loxone
+            loxone.command(cfg["loxone"]["light_uuid"], "off")   # lights off
+            loxone.command(cfg["loxone"]["jalousie_uuid"], "auto")  # blinds auto
             time.sleep(0.3)
             kodi._rpc("GUI.ActivateWindow", {"window": "home"})
         elif action == "reset":
             scheduler.reset()
+            kodi.seek_to_start()  # rewind film to beginning
         else:
             abort(400)
         return jsonify({"ok": True})
