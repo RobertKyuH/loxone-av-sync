@@ -18,6 +18,7 @@ loxone:
 web:
   host: 0.0.0.0
   port: 5000
+  rpi_host: 10.1.1.105    # IP RPi3 w sieci Cudy — do serwowania filmów dla Kodi
 
 timing:
   pre_trigger_ms: 200

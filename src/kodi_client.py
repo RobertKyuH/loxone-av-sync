@@ -71,6 +71,18 @@ class KodiClient:
             speed=float(speed),
         )
 
+    def open_file(self, url: str) -> bool:
+        result = self._rpc("Player.Open", {"item": {"file": url}})
+        return result is not None
+
+    def stop(self) -> bool:
+        player_id = self.get_active_player_id()
+        if player_id is None:
+            return True
+        result = self._rpc("Player.Stop", {"playerid": player_id})
+        self._player_id = None
+        return result is not None
+
     def test_connection(self) -> bool:
         result = self._rpc("JSONRPC.Ping", {})
         return result == "pong"

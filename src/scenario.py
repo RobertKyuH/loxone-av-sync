@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import List, Any
+from typing import List, Optional
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -9,11 +9,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Action:
-    """
-    type: loxone | audio
-    loxone: uuid + cmd  (e.g. cmd="up", cmd="volume/50", cmd="moodPlus")
-    audio:  cmd = play | pause | stop | volume/{n} | on | off
-    """
     type: str
     uuid: str = ""
     cmd: str = ""
@@ -47,8 +42,9 @@ class Scenario:
     title: str
     description: str
     version: str
+    movie: str                          # filename in movies/ directory
     events: List[Event] = field(default_factory=list)
-    path: str = ""
+    filename: str = ""
 
 
 def load_scenario(path: str) -> Scenario:
@@ -64,15 +60,15 @@ def load_scenario(path: str) -> Scenario:
             label=e["label"],
             actions=actions,
         ))
-
     events.sort(key=lambda ev: ev.time_ms)
 
     return Scenario(
         title=data["title"],
         description=data.get("description", ""),
         version=data.get("version", "1.0"),
+        movie=data.get("movie", ""),
         events=events,
-        path=path,
+        filename=Path(path).name,
     )
 
 
@@ -86,8 +82,18 @@ def list_scenarios(directory: str) -> List[dict]:
                 "filename": p.name,
                 "title": data.get("title", p.stem),
                 "description": data.get("description", ""),
+                "movie": data.get("movie", ""),
                 "events": len(data.get("events", [])),
             })
         except Exception as e:
             logger.warning("Cannot read scenario %s: %s", p.name, e)
+    result.sort(key=lambda x: x["title"])
     return result
+
+
+def list_movies(directory: str) -> List[str]:
+    exts = {".mp4", ".mkv", ".avi", ".mov", ".m4v"}
+    return sorted(
+        p.name for p in Path(directory).iterdir()
+        if p.suffix.lower() in exts
+    )
