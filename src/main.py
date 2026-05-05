@@ -32,6 +32,27 @@ def setup_logging(cfg: dict):
     )
 
 
+def _ensure_splash(movies_dir: Path):
+    """Generate a dark gradient splash.png if it doesn't exist yet."""
+    splash = movies_dir / "splash.png"
+    if splash.exists():
+        return
+    import struct, zlib
+    W, H = 1280, 720
+    rows = b"".join(
+        bytes([0]) + bytes([int(10 + 3 * y / H), int(10 + 20 * y / H), int(20 + 50 * y / H)]) * W
+        for y in range(H)
+    )
+    def chunk(tag, data):
+        crc = zlib.crc32(tag + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", crc)
+    with open(splash, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n")
+        f.write(chunk(b"IHDR", struct.pack(">IIBBBBB", W, H, 8, 2, 0, 0, 0)))
+        f.write(chunk(b"IDAT", zlib.compress(rows, 6)))
+        f.write(chunk(b"IEND", b""))
+
+
 def start_media_server(movies_dir: str, port: int):
     """Dedicated HTTP server for movie streaming — supports range requests natively."""
     class Handler(SimpleHTTPRequestHandler):
@@ -56,6 +77,7 @@ def main():
 
     movies_dir = Path("movies")
     movies_dir.mkdir(exist_ok=True)
+    _ensure_splash(movies_dir)
 
     media_srv = start_media_server(str(movies_dir.resolve()), media_port)
     logger.info("Media server started on port %d", media_port)
