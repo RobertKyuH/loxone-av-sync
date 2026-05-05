@@ -20,6 +20,8 @@ def create_app(
     loxone: LoxoneClient,
     audio: AudioClient,
     cfg: dict,
+    rpi_host: str = "10.1.1.105",
+    media_port: int = 8888,
 ) -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024 * 1024  # 8 GB
@@ -28,9 +30,7 @@ def create_app(
     movies_dir = Path("movies")
     movies_dir.mkdir(exist_ok=True)
 
-    # RPi3 own IP for serving movies to Kodi
-    rpi_host = cfg.get("web", {}).get("rpi_host", "10.1.1.105")
-    rpi_port = cfg.get("web", {}).get("port", 5000)
+    # rpi_host and media_port are passed in from main.py
 
     event_log: list = []
 
@@ -126,7 +126,7 @@ def create_app(
 
         # Start Kodi with the linked movie
         if scenario.movie:
-            movie_url = f"http://{rpi_host}:{rpi_port}/movies/{scenario.movie}"
+            movie_url = f"http://{rpi_host}:{media_port}/{scenario.movie}"
             ok = kodi.open_file(movie_url)
             if not ok:
                 return jsonify({"ok": False, "error": "Kodi failed to open file"}), 502

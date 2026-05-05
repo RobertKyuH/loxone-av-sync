@@ -1,7 +1,9 @@
 import logging
 import signal
 import sys
+import threading
 import yaml
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
 from .kodi_client import KodiClient
@@ -30,10 +32,33 @@ def setup_logging(cfg: dict):
     )
 
 
+def start_media_server(movies_dir: str, port: int):
+    """Dedicated HTTP server for movie streaming — supports range requests natively."""
+    class Handler(SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=movies_dir, **kwargs)
+        def log_message(self, fmt, *args):
+            pass  # silence access log
+
+    server = HTTPServer(("0.0.0.0", port), Handler)
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    return server
+
+
 def main():
     cfg = load_config()
     setup_logging(cfg["logging"])
     logger = logging.getLogger("main")
+
+    media_port = cfg.get("web", {}).get("media_port", 8888)
+    rpi_host = cfg.get("rpi_host", "10.1.1.105")
+
+    movies_dir = Path("movies")
+    movies_dir.mkdir(exist_ok=True)
+
+    media_srv = start_media_server(str(movies_dir.resolve()), media_port)
+    logger.info("Media server started on port %d", media_port)
 
     kodi = KodiClient(
         host=cfg["kodi"]["host"],
@@ -60,24 +85,26 @@ def main():
         tolerance_ms=cfg["timing"]["tolerance_ms"],
     )
 
-    app = create_app(scheduler, kodi, loxone, audio, cfg)
+    app = create_app(scheduler, kodi, loxone, audio, cfg, rpi_host, media_port)
 
     def shutdown(sig, frame):
         logger.info("Shutting down...")
         scheduler.stop()
+        media_srv.shutdown()
         sys.exit(0)
 
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
     scheduler.start()
-    logger.info("loxone-av-sync started")
+    logger.info("loxone-av-sync started — panel: %d, media: %d", cfg["web"]["port"], media_port)
 
     app.run(
         host=cfg["web"]["host"],
         port=cfg["web"]["port"],
         debug=False,
         use_reloader=False,
+        threaded=True,
     )
 
 
