@@ -207,8 +207,11 @@ def create_app(
             time.sleep(0.3)
             kodi._rpc("GUI.ActivateWindow", {"window": "home"})
         elif action == "reset":
-            scheduler.reset()
-            kodi.seek_to_start()  # rewind film to beginning
+            fn = _state.get("current_filename")
+            if fn:
+                _do_launch(fn)   # full restart: stop → open film → re-arm events
+            else:
+                scheduler.reset()
         else:
             abort(400)
         return jsonify({"ok": True})
