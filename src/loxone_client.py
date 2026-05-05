@@ -38,10 +38,11 @@ class LoxoneClient:
             return False
 
     def test_connection(self) -> bool:
+        # /jdev/cfg/api is publicly accessible (no auth required) — confirms Miniserver is online
         try:
             r = self.session.get(
-                self.base_url.replace("/dev/sps/io", "/jdev/sps/LoxAPPversion3"),
-                auth=self.auth, timeout=3
+                self.base_url.replace("/dev/sps/io", "/jdev/cfg/api"),
+                timeout=3
             )
             return r.status_code == 200
         except Exception:

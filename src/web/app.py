@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from pathlib import Path
 from flask import Flask, render_template, jsonify, request, abort, send_from_directory
 from werkzeug.utils import secure_filename
@@ -120,9 +121,10 @@ def create_app(
 
         scenario = load_scenario(str(path))
 
-        # Stop previous playback
+        # Stop previous playback and wait for Kodi to finish stopping
         scheduler.stop()
         kodi.stop()
+        time.sleep(0.8)
 
         # Start Kodi with the linked movie
         if scenario.movie:
