@@ -1,0 +1,136 @@
+{
+  "title": "Restaurant Tour — DET Demo",
+  "description": "Scenariusz zsynchronizowany z filmem RestaurantTour.mp4. Nastroje świateł, rolety i przełączniki według oryginalnego pliku DETCommandsRestaurant.json.",
+  "movie": "/storage/emulated/0/Movies/RestaurantTour.mp4",
+  "version": "2.0",
+  "events": [
+    {
+      "id": "evt_001",
+      "time": "00:00:01",
+      "label": "Start — zgaś światła",
+      "actions": [
+        {"type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "changeTo/0"}
+      ]
+    },
+    {
+      "id": "evt_002",
+      "time": "00:00:15",
+      "label": "Mood 70 — wejście do restauracji",
+      "actions": [
+        {"type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "changeTo/70"}
+      ]
+    },
+    {
+      "id": "evt_003",
+      "time": "00:00:27",
+      "label": "Mood 0 — ściemnienie",
+      "actions": [
+        {"type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "changeTo/0"}
+      ]
+    },
+    {
+      "id": "evt_004",
+      "time": "00:01:00",
+      "label": "Mood 74 — klimat wieczoru",
+      "actions": [
+        {"type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "changeTo/74"}
+      ]
+    },
+    {
+      "id": "evt_005",
+      "time": "00:01:07",
+      "label": "Mood 71 — zmiana atmosfery",
+      "actions": [
+        {"type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "changeTo/71"}
+      ]
+    },
+    {
+      "id": "evt_006",
+      "time": "00:01:22",
+      "label": "Mood 76 — dynamiczne oświetlenie",
+      "actions": [
+        {"type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "changeTo/76"}
+      ]
+    },
+    {
+      "id": "evt_007",
+      "time": "00:01:24",
+      "label": "Mood 77",
+      "actions": [
+        {"type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "changeTo/77"}
+      ]
+    },
+    {
+      "id": "evt_008",
+      "time": "00:01:27",
+      "label": "Mood 75",
+      "actions": [
+        {"type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "changeTo/75"}
+      ]
+    },
+    {
+      "id": "evt_009",
+      "time": "00:01:31",
+      "label": "Mood 73",
+      "actions": [
+        {"type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "changeTo/73"}
+      ]
+    },
+    {
+      "id": "evt_010",
+      "time": "00:01:36",
+      "label": "Mood 0 — ściemnienie",
+      "actions": [
+        {"type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "changeTo/0"}
+      ]
+    },
+    {
+      "id": "evt_011",
+      "time": "00:01:53",
+      "label": "Przełącznik — sygnał ON",
+      "actions": [
+        {"type": "loxone", "uuid": "20498c76-00b3-cc55-ffff0a0fb1695586", "cmd": "pulse"}
+      ]
+    },
+    {
+      "id": "evt_012",
+      "time": "00:02:04",
+      "label": "Przełącznik — sygnał OFF",
+      "actions": [
+        {"type": "loxone", "uuid": "20498c76-00b3-cc55-ffff0a0fb1695586", "cmd": "pulse"}
+      ]
+    },
+    {
+      "id": "evt_013",
+      "time": "00:02:14",
+      "label": "Rolety — otwieranie",
+      "actions": [
+        {"type": "loxone", "uuid": "202a2a0e-03bb-7c3a-ffff0a0fb1695586", "cmd": "up"}
+      ]
+    },
+    {
+      "id": "evt_014",
+      "time": "00:02:20",
+      "label": "Rolety — zamykanie",
+      "actions": [
+        {"type": "loxone", "uuid": "202a2a0e-03bb-7c3a-ffff0a0fb1695586", "cmd": "down"}
+      ]
+    },
+    {
+      "id": "evt_015",
+      "time": "00:02:42",
+      "label": "Mood 70 — finał",
+      "actions": [
+        {"type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "changeTo/70"}
+      ]
+    },
+    {
+      "id": "evt_016",
+      "time": "00:02:49",
+      "label": "Mood 0 — koniec",
+      "actions": [
+        {"type": "loxone", "uuid": "202a29e1-02cc-745e-ffff0a0fb1695586", "cmd": "changeTo/0"}
+      ]
+    }
+  ]
+}
