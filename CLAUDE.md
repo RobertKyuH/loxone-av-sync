@@ -42,7 +42,7 @@ Cudy LT3000 (router, SSID: cudy_4444)
 | Urządzenie | IP | Auth |
 |---|---|---|
 | Firestick / Kodi | 10.1.1.240:8080 | kodi:kodi |
-| Loxone Miniserver | 10.1.1.13 | Basic Auth admin:075600jrH!1a |
+| Loxone Miniserver | 10.1.1.13 | Basic Auth admin:${DET_MINISERVER_PASSWORD} |
 | AudioSerwer | 10.1.1.11:7091 | brak (paired z Loxone) |
 | RPi3 | 10.1.1.105 | — |
 
@@ -62,7 +62,7 @@ Sterowanie audio musi iść przez Loxone:
 ### Loxone Miniserver — Basic Auth (nie token)
 
 Firmware wymaga tokenu dla niektórych endpointów, ale `/dev/sps/io/` działa
-przez Basic Auth. Hasło: `075600jrH!1a`.
+przez Basic Auth. Hasło: `${DET_MINISERVER_PASSWORD}` (w `C:\Dev\claude\settings\.env`).
 
 ### Kodi — JSON-RPC na port 8080
 

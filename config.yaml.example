@@ -9,7 +9,7 @@ loxone:
   host: 10.1.1.13
   port: 80
   user: admin
-  password: "075600jrH!1a"
+  password: "${DET_MINISERVER_PASSWORD}"  # wartość w C:\Dev\claude\settings\.env
   # UUIDs z Loxone Config (Miniserver DET):
   audio_zone_uuid: "202a2ae5-0272-a407-ffff0a0fb1695586"
   light_uuid:      "202a29e1-02cc-745e-ffff0a0fb1695586"
